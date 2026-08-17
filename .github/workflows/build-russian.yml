@@ -7,6 +7,7 @@ on:
       - '.github/workflows/build-russian.yml'
       - '.github/scripts/apply_ru_patch.py'
       - '.github/scripts/apply_ru_patch_safe.py'
+      - 'nuget.config'
 
 permissions:
   contents: read
