@@ -10,7 +10,8 @@ on:
       - 'nuget.config'
 
 permissions:
-  contents: write
+  contents: read
+  issues: write
 
 jobs:
   build:
@@ -21,6 +22,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Initialize diagnostic log
+        shell: bash
         run: |
           mkdir -p .github
           {
@@ -32,30 +34,47 @@ jobs:
           } > .github/last-build.log
 
       - name: Setup .NET 6
+        id: setup_dotnet
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '6.x'
 
       - name: Setup Python
+        id: setup_python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Apply full Russian UI patch safely
+      - name: Patch and build with captured diagnostics
+        id: patch_build
+        if: always() && steps.setup_dotnet.outcome == 'success' && steps.setup_python.outcome == 'success'
         shell: bash
         run: |
+          set +e
           set -o pipefail
-          python .github/scripts/apply_ru_patch_safe.py 2>&1 | tee -a .github/last-build.log
 
-      - name: Build Release DLL
-        shell: bash
-        run: |
-          set -o pipefail
-          echo "--- dotnet build ---" | tee -a .github/last-build.log
+          echo "--- Russian patch ---" | tee -a .github/last-build.log
+          python .github/scripts/apply_ru_patch_safe.py 2>&1 | tee -a .github/last-build.log
+          PATCH_EXIT=${PIPESTATUS[0]}
+          echo "patch_exit=$PATCH_EXIT" | tee -a .github/last-build.log
+
+          if [ "$PATCH_EXIT" -ne 0 ]; then
+            echo "BUILD_EXIT=$PATCH_EXIT" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          echo "--- dotnet info ---" | tee -a .github/last-build.log
           dotnet --info 2>&1 | tee -a .github/last-build.log
+
+          echo "--- dotnet build ---" | tee -a .github/last-build.log
           dotnet build src/MalumMenu.csproj -c Release 2>&1 | tee -a .github/last-build.log
+          BUILD_EXIT=${PIPESTATUS[0]}
+          echo "build_exit=$BUILD_EXIT" | tee -a .github/last-build.log
+          echo "BUILD_EXIT=$BUILD_EXIT" >> "$GITHUB_ENV"
+          exit 0
 
       - name: Verify DLL
+        if: env.BUILD_EXIT == '0'
         shell: bash
         run: |
           set -o pipefail
@@ -64,6 +83,7 @@ jobs:
           ls -lh src/bin/Release/net6.0/MalumMenu.dll | tee -a .github/last-build.log
 
       - name: Upload Russian MalumMenu DLL
+        if: env.BUILD_EXIT == '0'
         uses: actions/upload-artifact@v4
         with:
           name: MalumMenu-3.2.0-FULL-RU-Epic
@@ -71,22 +91,65 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Save diagnostic log to repository
+      - name: Publish diagnostic log as issue
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          DOTNET_OUTCOME: ${{ steps.setup_dotnet.outcome }}
+          PYTHON_OUTCOME: ${{ steps.setup_python.outcome }}
+          PATCH_BUILD_OUTCOME: ${{ steps.patch_build.outcome }}
+          BUILD_EXIT_CODE: ${{ env.BUILD_EXIT }}
+        with:
+          script: |
+            const fs = require('fs');
+            const title = 'CI Russian Build Log';
+            let log = 'No diagnostic log file was produced.';
+            if (fs.existsSync('.github/last-build.log')) {
+              log = fs.readFileSync('.github/last-build.log', 'utf8');
+            }
+            if (log.length > 58000) log = log.slice(-58000);
+            const body = [
+              `Run: ${context.runId}`,
+              `Commit: ${context.sha}`,
+              `Setup .NET: ${process.env.DOTNET_OUTCOME}`,
+              `Setup Python: ${process.env.PYTHON_OUTCOME}`,
+              `Patch/build step: ${process.env.PATCH_BUILD_OUTCOME}`,
+              `Build exit: ${process.env.BUILD_EXIT_CODE || 'not-set'}`,
+              '',
+              '```text',
+              log,
+              '```'
+            ].join('\n');
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all',
+              per_page: 100
+            });
+            const existing = issues.find(i => !i.pull_request && i.title === title);
+            if (existing) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body,
+                state: 'open'
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body
+              });
+            }
+
+      - name: Mark build failed when compilation failed
         if: always()
         shell: bash
         run: |
-          if [ ! -f .github/last-build.log ]; then
-            echo "Build failed before diagnostic log was initialized." > .github/last-build.log
-          fi
-          {
-            echo
-            echo "job_status=${{ job.status }}"
-            echo "run_id=${{ github.run_id }}"
-          } >> .github/last-build.log
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .github/last-build.log
-          if ! git diff --cached --quiet; then
-            git commit -m "ci: record Russian build log [skip ci]"
-            git push
+          if [ "${{ steps.setup_dotnet.outcome }}" != "success" ] || \
+             [ "${{ steps.setup_python.outcome }}" != "success" ] || \
+             [ "${BUILD_EXIT:-1}" != "0" ]; then
+            exit 1
           fi
