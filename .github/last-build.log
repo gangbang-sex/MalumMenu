@@ -1,10 +1,10 @@
 Russian MalumMenu build diagnostic
-run_id=32077341527
-sha=b68fa6bfabe7b9d2b22f56552074fa3b37f274f3
+run_id=32077756719
+sha=bc3382f500e4b114354f33df082b5f97435affc6
 runner=Linux
 
 --- Russian patch ---
-Russian UI patch applied safely to 25 C# files (193 string literals)
+Russian UI patch applied safely to 25 C# files (192 string literals)
 patch_exit=0
 --- dotnet info ---
 .NET SDK:
@@ -81,21 +81,21 @@ Download .NET:
   https://aka.ms/dotnet/download
 --- dotnet build ---
   Determining projects to restore...
-  Restored /home/runner/work/MalumMenu/MalumMenu/src/MalumMenu.csproj (in 10.61 sec).
+  Restored /home/runner/work/MalumMenu/MalumMenu/src/MalumMenu.csproj (in 11.73 sec).
   Generating interop assemblies for AmongUs.GameLibs.Steam (version: 2026.6.5, unity version: 2022.3.44, il2cppinterop version: 1.4.6-ci.426)
-/home/runner/work/MalumMenu/MalumMenu/src/UI/Windows/DoorsUI.cs(61,32): error CS0103: The name 'ДвериHandler' does not exist in the current context [/home/runner/work/MalumMenu/MalumMenu/src/MalumMenu.csproj]
+  MalumMenu -> /home/runner/work/MalumMenu/MalumMenu/src/bin/Release/net6.0/MalumMenu.dll
 
-Build FAILED.
-
-/home/runner/work/MalumMenu/MalumMenu/src/UI/Windows/DoorsUI.cs(61,32): error CS0103: The name 'ДвериHandler' does not exist in the current context [/home/runner/work/MalumMenu/MalumMenu/src/MalumMenu.csproj]
+Build succeeded.
     0 Warning(s)
-    1 Error(s)
+    0 Error(s)
 
-Time Elapsed 00:00:34.77
-build_exit=1
+Time Elapsed 00:00:33.92
+build_exit=0
+--- verify output ---
+-rw-r--r-- 1 runner runner 163K Aug 17 22:50 src/bin/Release/net6.0/MalumMenu.dll
 
 setup_dotnet=success
 setup_python=success
 patch_build=success
-build_exit=1
+build_exit=0
 job_status=success
