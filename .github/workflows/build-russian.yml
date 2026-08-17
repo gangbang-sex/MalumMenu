@@ -1,0 +1,53 @@
+name: Build Russian DLL
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/build-russian.yml'
+      - '.github/scripts/apply_ru_patch.py'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 6
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.0.x'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Apply full Russian UI patch
+        run: python .github/scripts/apply_ru_patch.py
+
+      - name: Restore dependencies
+        run: dotnet restore src/MalumMenu.csproj
+
+      - name: Build Release DLL
+        run: dotnet build src/MalumMenu.csproj -c Release --no-restore
+
+      - name: Verify DLL
+        shell: pwsh
+        run: |
+          $dll = 'src/bin/Release/net6.0/MalumMenu.dll'
+          if (!(Test-Path $dll)) { throw "MalumMenu.dll was not produced" }
+          Get-Item $dll | Format-List Name,Length,LastWriteTime
+
+      - name: Upload Russian MalumMenu DLL
+        uses: actions/upload-artifact@v4
+        with:
+          name: MalumMenu-3.2.0-FULL-RU-Epic
+          path: src/bin/Release/net6.0/MalumMenu.dll
+          if-no-files-found: error
+          retention-days: 30
