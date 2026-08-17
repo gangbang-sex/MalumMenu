@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
@@ -22,7 +22,7 @@ jobs:
       - name: Setup .NET 6
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '6.0.x'
+          dotnet-version: '6.x'
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -32,18 +32,13 @@ jobs:
       - name: Apply full Russian UI patch safely
         run: python .github/scripts/apply_ru_patch_safe.py
 
-      - name: Restore dependencies
-        run: dotnet restore src/MalumMenu.csproj
-
       - name: Build Release DLL
-        run: dotnet build src/MalumMenu.csproj -c Release --no-restore
+        run: dotnet build src/MalumMenu.csproj -c Release
 
       - name: Verify DLL
-        shell: pwsh
         run: |
-          $dll = 'src/bin/Release/net6.0/MalumMenu.dll'
-          if (!(Test-Path $dll)) { throw "MalumMenu.dll was not produced" }
-          Get-Item $dll | Format-List Name,Length,LastWriteTime
+          test -f src/bin/Release/net6.0/MalumMenu.dll
+          ls -lh src/bin/Release/net6.0/MalumMenu.dll
 
       - name: Upload Russian MalumMenu DLL
         uses: actions/upload-artifact@v4
