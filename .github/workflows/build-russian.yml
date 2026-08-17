@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/build-russian.yml'
       - '.github/scripts/apply_ru_patch.py'
+      - '.github/scripts/apply_ru_patch_safe.py'
 
 permissions:
   contents: read
@@ -28,8 +29,8 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Apply full Russian UI patch
-        run: python .github/scripts/apply_ru_patch.py
+      - name: Apply full Russian UI patch safely
+        run: python .github/scripts/apply_ru_patch_safe.py
 
       - name: Restore dependencies
         run: dotnet restore src/MalumMenu.csproj
